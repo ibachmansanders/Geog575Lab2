@@ -1,0 +1,44 @@
+/* Main Stylesheet, Ian Bachman-Sanders, March 2017 */
+.axis path, /* vertical axes*/
+.axis line { /* little nubs*/
+	fill: none;
+	stroke: black;
+	stroke-width: 1px;
+	shape-rendering: crispEdges;
+}
+
+.axis text {
+	font-family: sans-serif;
+	font-size: 0.9em;
+}
+
+.title {
+	font-family: sans-serif;
+	font-size: 1.5em;
+	font-weight: bold;
+}
+
+.labels {
+	font-family: sans-serif;
+}
+
+.map {
+	border: medium solid #969696;
+
+}
+
+.countries {
+	fill: #c7e9c0;
+	stroke: #31a354;
+	stroke-width: 1px;
+}
+
+.gratlines {
+	fill: none;
+	stroke: #636363;
+	stroke-width: 1px;
+}
+
+.gratBack {
+	fill: #9ecae1;
+}
