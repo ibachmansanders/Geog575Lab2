@@ -23,14 +23,13 @@
 }
 
 .map {
-	border: medium solid #969696;
 
 }
 
 .countries {
-	fill: #c7e9c0;
-	stroke: #31a354;
+	stroke: #444;
 	stroke-width: 1px;
+	stroke-linecap: round;
 }
 
 .gratlines {
@@ -41,4 +40,42 @@
 
 .gratBack {
 	fill: #9ecae1;
+}
+
+.chartContainer {
+	float: right;
+}
+
+.chartArea {
+	fill: none;
+}
+
+.circles {
+	stroke: #444;
+	stroke-width: 1px;
+	stroke-linecap: round;		
+}
+
+.title {
+	font-family: sans-serif;
+	font-size: 1em;
+	fill: #444;
+	font-weight: bold;
+}
+
+.yAxis path,
+.yAxis line,
+.xAxis path,
+.xAxis line {
+	fill: none;
+	stroke: #444;
+	stroke-width: 1px;
+	shape-rendering: crispEdges;
+}
+
+.yAxis text,
+.xAxis text {
+	font-family: sans-serif;
+	font-size: 1em;
+	fill: #444;
 }
