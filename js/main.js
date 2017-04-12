@@ -68,8 +68,16 @@ function setMap(){
 		//add a chart to the page
 		setChart(WorldDisasters, colorScale, h);
 
+		//include a menu to select different disaster types
+		selectMenu(WorldDisasters);
+
 	};
 };
+
+
+
+
+
 
 function CSVtoGeoJSON(csv,geoJSON){
 	//loop through CSV to assign attributes to build an array based on country name
@@ -89,6 +97,11 @@ function CSVtoGeoJSON(csv,geoJSON){
 		};
 	};
 };
+
+
+
+
+
 
 function setGraticule(map,path) {
 	//create a graticule generator
@@ -111,20 +124,40 @@ function setGraticule(map,path) {
 		;
 };
 
+
+
+
+
+
 function addCountries(map, geoJSON, path, colorScale) { 
-	var countries = map.selectAll(".countries") //iterate through all countries
+	var countries = map.selectAll(".country") //iterate through all countries
 		.data(geoJSON) //use world countires data
 		.enter() //enter data into container
 		.append("path") //add drawing element
 		.attr("class", function(d){
-			return "countries " + d.properties.name_long; //apply class based on country name stored in topojson
+			return "country " + d.properties.name_long; //apply class based on country name stored in topojson
 		})
-		.attr("d", path) //assign path generator 'path' to the <path> element's d (data)- not the same as worldCountriesGeo d (data)			;
+		.attr("d", path) //assign path generator 'path' to the <path> element's d (data)- not the same as worldCountriesGeo d (data)
 		.style("fill", function(d) {
 			return choropleth(d.properties, colorScale)
 		})
+		.on("mouseover", function(d){
+			highlight(d.properties); //pass the country's properties object to the highlight or dehighlight functions, to be updated on mouseover
+		})
+		.on("mouseout", function(d){
+			dehighlight(d.properties);
+		})
+		;
+
+	var desc = countries.append("desc") //add an invisible element to store style information for dehighlight() function
+		.text('{"stroke": "#444", "stroke-width": "1px"}')
 		;
 };
+
+
+
+
+
 
 //create color scale
 function makeColorScale(data) {
@@ -162,6 +195,11 @@ function makeColorScale(data) {
 	return colorScale;
 };
 
+
+
+
+
+
 //help colorScale handle NULL values
 function choropleth(props, colorScale) {
 	//force into number
@@ -173,6 +211,9 @@ function choropleth(props, colorScale) {
 		return "#CCC"; //assigns grey
 	};
 };
+
+
+
 
 
 
@@ -210,10 +251,7 @@ function setChart(csvData, colorScale, height) {
 		.attr("transform",translate)
 		.attr("class","chartArea")
 
-
-
 	//SCALES
-
 	//create a scale to map out the country y placement based on population
 	var yScale = d3.scaleLog() //create the scale generator (NOT object, it is a tool reliant upon input)
 		//set scale range
@@ -230,21 +268,12 @@ function setChart(csvData, colorScale, height) {
 
 	//SYMBOLS
 
-	var circles = chartContainer.selectAll(".circles")
+	var circles = chartContainer.selectAll(".circle")
 		.data(csvData)
 		.enter()
 		.append("circle")
 		.sort(function(a,b) {
 			return a[expressed]-b[expressed];
-		})
-		.attr("r",function(d){
-			var val = parseFloat(d[expressed]);
-			if (typeof val == "number" && !isNaN(val)) {
-				var area = val*100000000; //CHECK do we need a min size?
-				return Math.sqrt(area/Math.PI); //derive circle size based on country population
-			} else {
-				return 0;
-			};
 		})
 		.attr("cx",function(d){
 			var val = parseFloat(d.GDPperCapita.replace(',','')); //force GDP/capita into number
@@ -262,14 +291,19 @@ function setChart(csvData, colorScale, height) {
 				return 0;
 			};
 		})
-		.style("fill",function(d){
-			return choropleth(d, colorScale);
-		})
 		.style("fill-opacity","0.8")
-		.attr("class","circles")
+		.attr("class", function(d){
+			return "circle "+d.name_long;
+		})
 		.attr("id",function(d){
 			return d.name_long;
 		})
+		.on("mouseover", highlight) //call highlight funciton on mouseover (dehighlight below)
+		.on("mouseout", dehighlight)
+		;
+
+	var desc = circles.append("desc") //store circles styling info invisibly for dehighlight() function
+		.text('{"stroke": "#444", "stroke-width": "1px"}')
 		;
 
 	//AXES
@@ -286,6 +320,15 @@ function setChart(csvData, colorScale, height) {
 		.call(yAxisG) //same as yAxis(axis)
 		;
 
+	//draw y-axis title
+	var yTitle = chartContainer.append("text")
+		.attr("x",leftPadding+chartInnerW)
+		.attr("y",chartInnerH+0.8*topPadding)
+		.style("text-anchor","end")
+		.text("GDP per Capita")
+		.attr("class","yTitle")
+		;
+
 	//create x-axis generator
 	var xAxisG = d3.axisBottom(xScale)
 		.scale(xScale)
@@ -299,22 +342,172 @@ function setChart(csvData, colorScale, height) {
 		.call(xAxisG) //generate xAxis
 		;
 
+	//draw x-axis title
+	var xTitle = chartContainer.append("text")
+		.attr("transform","rotate(90 " + leftPadding*1.2 + " " + topPadding + ")")
+		.attr("x",leftPadding*1.2)
+		.attr("y",topPadding)
+		.style("text-anchor","start")
+		.text("Population")
+		.attr("class","xTitle")
+		;
+
 	//Add title
 	var title = chartContainer.append("text") //add a text element to the svg for a title
 		.attr("text-anchor","middle") //anchor text to centerpoint
 		.attr("x",chartW/2) //set text anchor location
 		.attr("y",chartH*0.05)
-		.text([expressed]+" per Capita by Country") //add the text
 		.attr("class","title") //provide a class, as always
+		;
+
+	//update circle styles
+	updateCircles(circles,colorScale);
+
+};
+
+
+
+
+
+
+//create a menu to select disaster
+function selectMenu(csvData) {
+	//add the element
+	var menu = d3.select("body")
+		.append("select")
+		//create an onChange listener, triggering the change attribute function!
+		.on("change",function() {
+			changeAttr(this.value, csvData)
+		})
+		.attr("class","menu")
+		;
+
+	//add first option
+	var titleOption = menu.append("option")
+		.attr("disabled","true")
+		.text("Select Natural Disaster")
+		.attr("class","titleOption")
+		;
+
+	//add attribute options
+	var attrOptions = menu.selectAll("attrOptions")
+		.data(attrArray)
+		.enter()
+		.append("option")
+		.attr("value",function(d){return d;})
+		.text(function(d){return d;})
 		;
 };
 
-})();//close anon wrapping function
 
-//TODO
-//Re-calculate .csv values as a to-population ratio
-//Center map, remove border
-//graph goes... above it?
-//Bubble chart- population size, # of natural disasaters, # of people affected (update CSV)
-	//do chart over time?  Use linear interpolation to fill in missing data?
-//Balance dimensions
+
+
+
+
+//ON USER SELECTION
+function changeAttr(attribute,csvData) {
+	//Change [expressed]
+	expressed = attribute;
+	//Recreate colorScale factoring in new [expressed]
+	colorScale = makeColorScale(csvData);
+	//Recolor countries
+	var countries = d3.selectAll(".country") //simply restyle all elements with .countries class
+		.transition() //include an animated transition between state changes, default settings
+		.duration(1000)
+		.style("fill",function(d){
+			return choropleth(d.properties, colorScale)
+		});
+	//Update chart data
+	var circles = d3.selectAll(".circle")
+		//re sort
+		.sort(function(a,b) {
+			return a[expressed]-b[expressed];
+		})
+		.transition() //add animation
+		.delay(function(d,i){
+			return i * 15;
+		})
+		.duration(250)
+		;
+ 
+	//update circle styles
+	updateCircles(circles,colorScale);
+};
+
+
+
+
+
+
+//reduce redundancies! Pack code into functions!
+function updateCircles(circles,colorScale,title) {
+	//resize
+	circles.attr("r",function(d){
+		var val = parseFloat(d[expressed]);
+		if (typeof val == "number" && !isNaN(val)) {
+			var area = val*100000000; //CHECK do we need a min size?
+			return Math.sqrt(area/Math.PI); //derive circle size based on country population
+		} else {
+			return 0;
+		};
+	})
+	//recolor
+	.style("fill",function(d){
+		return choropleth(d, colorScale);
+	})
+	;
+	//update the title text
+	var title = d3.selectAll(".title")
+		.text([expressed]+" per Capita by Country")
+};
+
+
+
+
+
+
+//Dynamic highlighting
+function highlight(country) {
+	//change stroke
+	var selected = d3.selectAll("."+country.name_long)
+		.style("stroke","#444")
+		.style("stroke-width","3")
+		;
+};
+
+
+
+
+
+
+function dehighlight(country) {
+	//select all countries
+	var selected = d3.selectAll("."+country.name_long)
+		.style("stroke",function() {
+			return getStyle(this,"stroke"); //reference getStyle function below, which accesses <desc> element
+		})
+		.style("stroke-width",function(){
+			return getStyle(this,"stroke-width");
+		})
+		;
+
+	function getStyle(element,style) {
+		var styleText = d3.select(element)
+			.select("desc")
+			.text()
+			;
+
+		var styleObject = JSON.parse(styleText); //change <desc> text into JSON object that responds to key:value queries
+
+		return styleObject[style]; //return the value of the key provided, stroke or stroke-width
+	};
+};
+
+
+
+
+
+
+
+
+})();//close anon wrapping function
