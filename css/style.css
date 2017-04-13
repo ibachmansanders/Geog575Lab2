@@ -30,6 +30,7 @@
 	stroke: #444;
 	stroke-width: 1px;
 	stroke-linecap: round;
+	stroke-linejoin: round;
 }
 
 .gratlines {
@@ -106,4 +107,24 @@ select {
 
 option {
 	font-weight: normal;
+}
+
+.label {
+	position: absolute;
+	border-radius: 3px;
+	top: -20vh;
+	color: #fff;
+	background-color: rgba(68,68,68,0.8);
+	padding: 1vh 1vw;
+	font-family: sans-serif;
+}
+
+.label h1 {
+	margin: 0 .2vw 0 0;
+	padding-top: 2vh;
+	padding-right: 2vh;
+	padding-bottom: 2vh;
+	display: inline-block;
+	font-size: 2em;
+	line-height: 1em;
 }

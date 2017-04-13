@@ -4,21 +4,29 @@
 (function(){
 //global variables (made local by anon function above)
 var attrArray = ["AnimalAccident",	"Drought", "Earthquake", "Epidemic", "ExtremeTemperature", "Flood", "Impact", "InsectInfestation", "Landslide", "MassMovementDry", "Storm", "VolcanicActivity", "Wildfire"];
+var attrArrayTitles = [{"AnimalAccident":"Animal Accident"},	{"Drought":"Drought"}, {"Earthquake":"Earthquake"}, {"Epidemic":"Epidemic"}, {"ExtremeTemperature":"Extreme Temperature"}, {"Flood":"Flood"}, {"Impact":"Impact"}, {"InsectInfestation":"Insect Infestation"}, {"Landslide":"Landslide"}, {"MassMovementDry":"Mass Movement Dry"}, {"Storm":"Storm"}, {"VolcanicActivity":"Volcanic Activity"}, {"Wildfire":"Wildfire"}];
 var expressed = attrArray[5]; //attribute expressed from array- can be changed!
+var eIndex = attrArray.indexOf(expressed); //isolate the index of the current expressed array item for lookup in the attrAarrayTitles hashtable
 
 
-window.onload = setMap();
+//window.onload = setMap();
+window.onresize =setMap();
 
 //set up choropleth map
 function setMap(){
 
+	//resize map and chart svg
+	//d3.select(window)
+		//.on("resize",sizeChange)
+		//;
+
 	//SVG CANVAS
 	//set dimensions based on client window size
-	var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0) * 0.6 ;
-	var h = w/2;
+	var w = $("#container").width() * 0.6 ;
+	var h = window.innerHeight;
 
 	//create svg container
-	var map = d3.select("body") //select body of website
+	var map = d3.select("#container") //select body of website
 		.append("svg")//add svg canvas to the webpage
 		.attr("width", w)//assign width
 		.attr("height", h)//assign height
@@ -33,7 +41,8 @@ function setMap(){
 
 	//create projection
 	var projection = d3.geoMollweide() //TODO equal-area, but do you lose data?
-		.translate([w/2,h/2]); //keep map centered in window
+		.translate([w/2,h/2])
+		; //keep map centered in window
 
 	//draw spatial data using path generator
 	//create generator
@@ -83,15 +92,17 @@ function CSVtoGeoJSON(csv,geoJSON){
 	//loop through CSV to assign attributes to build an array based on country name
 	for (var i = 0; i < csv.length; i++) {
 		var countryAttr = csv[i]; //store the object attributes for later
-		var countryKey = countryAttr.name_long; //select the matching key (name) for that country
+		var countryKey = countryAttr.brk_a3; //select the matching key (name) for that country
 		for (var a = 0; a < geoJSON.length; a++) { //go through all the country geometries, searching fo r amatch to the key
 			var countryGeoAttr = geoJSON[a].properties //I realize storing this in the code is worthwhile for editing later- can change the whole code chain
-			var countryGeoKey = countryGeoAttr.name_long;
+			var countryGeoKey = countryGeoAttr.brk_a3;
 			if (countryKey == countryGeoKey) {
 				//assign attributes if countries match
 				attrArray.forEach(function(attr) { //for each attribute you want to compare...
 					var csvAttr = countryAttr[attr]; //select the attribute val for this country from CSV
 					countryGeoAttr[attr]= parseFloat(csvAttr); //apply the attr to the properties of the country geometry
+					countryGeoAttr["Population"]= parseFloat(countryAttr["Population"]); //include population for later calculations
+					countryGeoAttr["GDPperCapita"]= parseFloat(countryAttr["GDPperCapita"]);
 				});
 			};
 		};
@@ -135,7 +146,10 @@ function addCountries(map, geoJSON, path, colorScale) {
 		.enter() //enter data into container
 		.append("path") //add drawing element
 		.attr("class", function(d){
-			return "country " + d.properties.name_long; //apply class based on country name stored in topojson
+			return "country " + d.properties.brk_a3; //apply class based on country name stored in topojson
+		})
+		.attr("id",function(d){
+			return "country"+d.properties.brk_a3;
 		})
 		.attr("d", path) //assign path generator 'path' to the <path> element's d (data)- not the same as worldCountriesGeo d (data)
 		.style("fill", function(d) {
@@ -147,6 +161,7 @@ function addCountries(map, geoJSON, path, colorScale) {
 		.on("mouseout", function(d){
 			dehighlight(d.properties);
 		})
+		.on("mousemove",moveLabel)
 		;
 
 	var desc = countries.append("desc") //add an invisible element to store style information for dehighlight() function
@@ -220,7 +235,7 @@ function choropleth(props, colorScale) {
 //CHART- DATA VISUALIZATION
 function setChart(csvData, colorScale, height) {
 	//dimensions
-	var chartW = window.innerWidth * 0.38, 
+	var chartW = $("#container").width() * 0.37, 
 		chartH = height,
 		leftPadding = chartW*0.1, //doing everything by ratio
 		rightPadding = leftPadding/2,
@@ -231,7 +246,7 @@ function setChart(csvData, colorScale, height) {
 		translate = "translate(" + leftPadding + "," + topPadding + ")";
 
 	//create a  new svg, add chart to it
-	var chartContainer = d3.select("body")
+	var chartContainer = d3.select("#container")
 		.append("svg")
 		.attr("width", chartW)
 		.attr("height", chartH)
@@ -293,13 +308,14 @@ function setChart(csvData, colorScale, height) {
 		})
 		.style("fill-opacity","0.8")
 		.attr("class", function(d){
-			return "circle "+d.name_long;
+			return "circle "+d.brk_a3;
 		})
 		.attr("id",function(d){
-			return d.name_long;
+			return "circle"+d.brk_a3;
 		})
 		.on("mouseover", highlight) //call highlight funciton on mouseover (dehighlight below)
 		.on("mouseout", dehighlight)
+		.on("mousemove", moveLabel)
 		;
 
 	var desc = circles.append("desc") //store circles styling info invisibly for dehighlight() function
@@ -373,7 +389,7 @@ function setChart(csvData, colorScale, height) {
 //create a menu to select disaster
 function selectMenu(csvData) {
 	//add the element
-	var menu = d3.select("body")
+	var menu = d3.select("#container")
 		.append("select")
 		//create an onChange listener, triggering the change attribute function!
 		.on("change",function() {
@@ -408,6 +424,7 @@ function selectMenu(csvData) {
 function changeAttr(attribute,csvData) {
 	//Change [expressed]
 	expressed = attribute;
+	eIndex = attrArray.indexOf(expressed);
 	//Recreate colorScale factoring in new [expressed]
 	colorScale = makeColorScale(csvData);
 	//Recolor countries
@@ -456,9 +473,9 @@ function updateCircles(circles,colorScale,title) {
 		return choropleth(d, colorScale);
 	})
 	;
-	//update the title text
+	//set the title text
 	var title = d3.selectAll(".title")
-		.text([expressed]+" per Capita by Country")
+		.text(attrArrayTitles[eIndex][expressed]+" per Capita by Country")
 };
 
 
@@ -466,14 +483,21 @@ function updateCircles(circles,colorScale,title) {
 
 
 
-//Dynamic highlighting
+//Dynamic highlighting for countries
 function highlight(country) {
 	//change stroke
-	var selected = d3.selectAll("."+country.name_long)
-		.style("stroke","#444")
-		.style("stroke-width","3")
+	var selected = d3.selectAll("#country"+country.brk_a3)
+		.style("stroke","rgba(68,68,68,0.5)")
+		.style("stroke-width","10")
 		;
+	//change stroke
+	var selected = d3.selectAll("#circle"+country.brk_a3)
+		.style("stroke","#444")
+		.style("stroke-width","2")
+		;
+	setLabel(country); //call popup label
 };
+
 
 
 
@@ -482,7 +506,7 @@ function highlight(country) {
 
 function dehighlight(country) {
 	//select all countries
-	var selected = d3.selectAll("."+country.name_long)
+	var selected = d3.selectAll("."+country.brk_a3)
 		.style("stroke",function() {
 			return getStyle(this,"stroke"); //reference getStyle function below, which accesses <desc> element
 		})
@@ -501,6 +525,11 @@ function dehighlight(country) {
 
 		return styleObject[style]; //return the value of the key provided, stroke or stroke-width
 	};
+
+	//remove info label
+	d3.select(".label")
+		.remove()
+		;
 };
 
 
@@ -508,6 +537,98 @@ function dehighlight(country) {
 
 
 
+//create dynamic labels
+function setLabel(country){
+	//label content
+	var header = "<h1>" + noData(Math.round(country[expressed]*country.Population)) + "</h1>"+
+		attrArrayTitles[eIndex][expressed]+" Events";
 
+	//create info label div
+	var label = d3.select("body")
+		.append("div")
+		.attr("id",country.brk_a3+"_label") //unique identifier
+		.html(header) //insert the above html into the label
+		.attr("class","label")
+		;
+
+	var content = label.append("div")
+		.html("<b>"+country.name_long+"</b><br>"+
+			"Population: " + noData(abbreviateNumber(parseFloat(country.Population)))+"<br>"+
+			"GDP per Capita USD: " + noData(abbreviateNumber(parseFloat(country.GDPperCapita))))
+		.attr("class","content")
+		;
+	//function for formatting numbers, provided by: http://stackoverflow.com/questions/10599933/convert-long-number-into-abbreviated-string-in-javascript-with-a-special-shortn
+	function abbreviateNumber(value) {
+    var newValue = Math.round(value);
+	    if (value >= 1000) {
+	        var suffixes = ["", "k", "m", "b","t"];
+	        var suffixNum = Math.floor( (""+newValue).length/3.0001 ); //identifies place (thousands, millions, etc.)
+	        var shortValue = '';
+	        for (var precision = 3; precision >= 1; precision--) {
+	            shortValue = parseFloat( (suffixNum != 0 ? (value / Math.pow(1000,suffixNum) ) : value).toPrecision(precision)); //reduce number to it's factor (10000 > 10, 550000000 > 550)
+	            var dotLessShortValue = (shortValue + '').replace(/[^a-zA-Z 0-9]+/g,'');
+	            if (dotLessShortValue.length <= 2) { break; }
+	        }
+	        if (shortValue % 1 != 0)  shortNum = shortValue.toFixed(1); //provides one decimal if it doesn't divide evenly
+	        newValue = shortValue+suffixes[suffixNum]; //add suffix
+	    }
+	    return newValue;
+	};
+	//catch and replace NaN responses
+	function noData(value){
+		if(String(value) == "NaN"){
+			return "No data";
+		} else {
+			return value
+		};
+	};
+};
+
+
+
+
+
+
+//set label position by mouse
+function moveLabel(){
+	//caputre label width
+	var labelWidth = d3.select(".label")
+	.node() //isolate label node in DOM (so cool...)
+	.getBoundingClientRect() //get outline
+	.width
+	;
+
+	//use mouse coordinates to set label coordinates
+	var x1 = d3.event.clientX + 10,
+		y1 = d3.event.clientY - 75; //closer to top of page than actual country
+		x2 = d3.event.clientX - labelWidth-10; //too close to right? Flip label to left
+		y2 = d3.event.clientY + 25; //...and up a bit
+
+	//assign coordinates of label based on client mouse location
+	var x = d3.event.clientX > window.innerWidth - labelWidth - 20 ? x2 : x1; //conditional if mouse is within labelWidth +20 px
+	var y = d3.event.clientY < 75 + 20 ? y2 : y1; //conditional if mouse is within your adjusted y value above (label goes DOWN from mouse point)
+
+	d3.select(".label")
+		.style("left", x + "px") //label position is absolute, so margin wouldn't work- left and top refer to view window
+		.style("top", y + "px")
+		;
+};
+
+
+
+
+
+
+//resize map or chart
+function sizeChange(){
+
+	var oldWidth = $(".map").width();
+
+	//change svg sizes based on window size
+	$(".map").width($("#container").width()*0.6);
+	$(".map").height(window.innerHeight);
+	$(".chartContainer").width($("#container").width()*0.37);
+	$(".chartContainer").height($(window).height());
+};
 
 })();//close anon wrapping function
