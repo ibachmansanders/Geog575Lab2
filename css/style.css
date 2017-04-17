@@ -22,6 +22,38 @@
 	font-family: sans-serif;
 }
 
+.svg-container {
+	display: inline-block;
+	position: relative;
+	vertical-align: top;
+	overflow: hidden;
+	width: 60%;
+	padding-bottom: 50%; /*aspect ratio*/
+}
+
+.svg-content-responsive {
+	display: inline-block;
+	position: absolute;
+	top: 10px;
+	left: 0;
+}
+
+.svg-container2 {
+	display: inline-block;
+	position: relative;
+	vertical-align: middle;
+	overflow: hidden;
+	width: 37%;
+	padding-bottom: 81%; /*aspect ratio*/
+}
+
+.svg-content-responsive2 {
+	display: inline-block;
+	position: absolute;
+	top: 10px;
+	left: 0;
+}
+
 .map {
 
 }
@@ -52,6 +84,12 @@
 }
 
 .circle {
+	stroke: #444;
+	stroke-width: 1px;
+	stroke-linecap: round;		
+}
+
+.legendCircles {
 	stroke: #444;
 	stroke-width: 1px;
 	stroke-linecap: round;		
@@ -127,4 +165,9 @@ option {
 	display: inline-block;
 	font-size: 2em;
 	line-height: 1em;
+}
+
+.legendNums {
+	font-family: sans-serif;
+	font-size: 1em;
 }
