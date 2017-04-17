@@ -1,4 +1,23 @@
 /* Main Stylesheet, Ian Bachman-Sanders, March 2017 */
+#intro {
+	font-family: sans-serif;
+	color:#444;
+	margin: 0px;
+	padding-left: 2vw;
+}
+
+#intro h1 {
+	font-size: 1.5em;
+}
+
+#intro p {
+	font-size: 0.8em;
+}
+
+#intro a {
+	color: #444;
+}
+
 .axis path, /* vertical axes*/
 .axis line { /* little nubs*/
 	fill: none;
@@ -28,7 +47,6 @@
 	vertical-align: top;
 	overflow: hidden;
 	width: 60%;
-	padding-bottom: 50%; /*aspect ratio*/
 }
 
 .svg-content-responsive {
@@ -44,7 +62,6 @@
 	vertical-align: middle;
 	overflow: hidden;
 	width: 37%;
-	padding-bottom: 81%; /*aspect ratio*/
 }
 
 .svg-content-responsive2 {
@@ -95,7 +112,10 @@
 	stroke-linecap: round;		
 }
 
-.title {
+.title,
+.rectTitle,
+.circTitle,
+.panTitle {
 	font-family: sans-serif;
 	font-size: 1em;
 	fill: #444;
@@ -133,14 +153,16 @@ select {
 
 .menu {
 	position: absolute;
-	top: 7vh;
-	left: 3vw;
 	z-index: 10;
 	font-family: sans-serif;
 	font-weight: bold;
-	fill: #444;
+	color: #444;
 	padding: 1vh; 
 	box-shadow: 0px 0px 10px #f0f0f0;
+}
+
+.reset {
+	left: 7vw;
 }
 
 option {
@@ -167,7 +189,14 @@ option {
 	line-height: 1em;
 }
 
-.legendNums {
+.legendNums,
+.legendCircNums {
 	font-family: sans-serif;
-	font-size: 1em;
+	font-size: 0.75em;
+	font-weight: bold;
+	fill: #444;
+}
+
+.legendNums {
+	fill: #222;
 }

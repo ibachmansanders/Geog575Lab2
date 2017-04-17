@@ -10,7 +10,7 @@ var eIndex = attrArray.indexOf(expressed); //isolate the index of the current ex
 
 //set dimensions based on client window size
 var w = $("#container").width() * 0.6 ;
-var h = window.innerHeight;
+var h = window.innerHeight*0.85;
 
 //dimension global variables
 var chartW = $("#container").width() * 0.37, 
@@ -30,18 +30,24 @@ window.onresize =setMap();
 //set up choropleth map
 function setMap(){
 
-	//resize map and chart svg
-	//d3.select(window)
-		//.on("resize",sizeChange)
-		//;
-
 	//SVG CANVAS
+	//Zoom functionality
+	var zoom = d3.zoom()
+		.scaleExtent([1,8])
+		.on("zoom",zooming)
+		;
+
+	function zooming() {
+		var zoomT = d3.zoomTransform(this);
+		var zoomM = d3.select("#mapItems")
+			.attr("transform","translate("+zoomT.x+","+zoomT.y+") scale("+zoomT.k+")");
+	};
 
 	//create svg container
 	var map = d3.select("#container") //select body of website
 		.append("div")
 		.classed("svg-container",true)
-		.attr("id","#mapDiv")
+		.attr("id","mapDiv")
 		.append("svg")//add svg canvas to the webpage
 		.attr("preserveAspectRatio", "xMinYMin meet")//force svg to keep its shape
 		.attr("viewBox","0 0 "+ w + " " + h )//assign viewbox dimensions
@@ -53,6 +59,9 @@ function setMap(){
 			return margins;
 		})
 		.attr("class", "map")
+		.call(zoom)
+		.append("g") //needs to operate on a group of objects
+		.attr("id","mapItems")
 		;
 
 	var scale = 140/1400; //I computed that 140 was a good scale @ ~ 1400px, so I created a coefficient to read screan sizes.
@@ -99,8 +108,13 @@ function setMap(){
 		//include a menu to select different disaster types
 		selectMenu(WorldDisasters,map);
 
+		//include legend
+		legend(map,colorScale,WorldDisasters)
 	};
 };
+
+
+
 
 
 
@@ -274,7 +288,7 @@ function setChart(csvData, colorScale, map) {
 	var chartContainer = d3.select("#container")
 		.append("div") //add a div within our container
 		.classed("svg-container2",true) //sets this as a specific type of container, allowing me to manipulate width, aspect ratio in css
-		.attr("id","#chartDiv") // just to have it for sizing later
+		.attr("id","chartDiv") // just to have it for sizing later
 		.append("svg")
 		.attr("preserveAspectRatio", "xMinYMin meet")//force svg to keep its shape
 		.attr("viewBox","0 0 "+ chartW + " " + chartH )//assign viewbox dimensions
@@ -383,7 +397,53 @@ function setChart(csvData, colorScale, map) {
 		.attr("class","title") //provide a class, as always
 		;
 
-	//ADD LEGEND
+	//update circle styles
+	updateCircles(circles,colorScale,csvData);
+};
+
+
+
+
+
+
+//the legend got cumbersome, so I made it modular
+function legend(map,colorScale,csvData){
+	var legendSVG = d3.selectAll(".map")
+		.append("svg")
+		.attr("class","legendSVG")
+		;
+
+	createLegendCircs(legendSVG,csvData);
+	createLegendRects(legendSVG,colorScale,csvData);
+
+	//add an affordance to encourage interactivity
+	var panZoom = legendSVG.append("image")
+		.attr("xlink:href","img/panZoom.png")
+		.attr("width",h*0.1)
+		.attr("height",h*0.1)
+		.attr("x",w*0.1)
+		.attr("y",h*0.85)
+		.attr("transform","translate(-"+h*0.05+",0)")
+		.attr("class","panZoom")
+		;
+
+	//add affordance title
+	var panTitle = legendSVG.append("text") //add a text element to the svg for a title
+		.attr("text-anchor","middle") //anchor text to centerpoint
+		.attr("x",w*0.1) //set text anchor location
+		.attr("y",h*0.985)
+		.text("Pan/Zoom")
+		.attr("class","panTitle") //provide a class, as always
+		;
+};
+
+
+
+
+
+
+function createLegendCircs(legendSVG,csvData){
+		//ADD LEGEND
 	//create legend data for population circles based on the range of population from smallest to largest
 	var legendDataCircles = [
 		1000,
@@ -393,19 +453,8 @@ function setChart(csvData, colorScale, map) {
 		1400000000
 	];
 
-
-	//get the domain array to use for the legend
-	var domainArray = makeDomainArray(csvData);
-
-	//cluster the data array using ckMeans clustering algorithm- creates natural breaks
-	var clusters = ss.ckmeans(domainArray, 5); //accesses d3 simple-statistics, sets 5 clusters from the domain
-	//resevar domainArray = domainArray(data);t domainArray as an array of the min of the 5 clusters you created to serve as breakpoints
-	var legendColors = clusters.map(function(d){
-		return d3.median(d);
-	});
-
 	//Add Legend
-	var legendCircles = map.selectAll(".legendCircles")
+	var legendCircles = legendSVG.selectAll(".legendCircles")
 		.data(legendDataCircles)
 		.enter()
 		.append("circle")
@@ -415,14 +464,14 @@ function setChart(csvData, colorScale, map) {
 		.attr("r",function(d){
 			var val = parseFloat(d);
 			if (typeof val == "number" && !isNaN(val)) {
-				var area = val/100000; //CHECK do we need a min size?
+				var area = val/300000; //sized to fit chart appropriately
 				return Math.sqrt(area/Math.PI); //derive circle size based on country population
 			} else {
 				return 0;
 			};
 		})
 		.attr("cy",function (){
-			var y = 0.95*h-this.getAttribute("r");
+			var y = 0.95*h-this.getAttribute("r"); //so that all circles align at bottom
 			return y;
 		})
 		.attr("cx",w*0.9)
@@ -433,11 +482,58 @@ function setChart(csvData, colorScale, map) {
 		.attr("class","legendCirlces")
 		;
 
-	//update circle styles
-	updateCircles(circles,colorScale,csvData);
+	//Add legend labelLines
+	var labelLines = legendSVG.selectAll(".labelLines")
+		.data(legendDataCircles)
+		.enter()
+		.append("line")
+		.attr("x1",w*0.9)
+		.attr("x2",w*0.96)
+		.attr("y1",function(d){ //calculate y position based on circle radius
+			var val = d/300000;
+			var r = Math.sqrt(val/Math.PI)*2; //calculate the diamter of each prop circle
+			var y = 0.95*h-r;
+			return y;
+		})
+		.attr("y2",function(){
+			return this.getAttribute("y1");
+		})
+		.attr("stroke","#444")
+		.attr("stroke-width","1px")
+		;
 
-	//create legendRects
-	createLegendRects(map,colorScale,legendColors);
+
+	//Add legend numbers
+	var legendCircNums = legendSVG.selectAll('.legendCircNums')
+		.data(legendDataCircles)
+		.enter()
+		.append("text")
+		.sort(function(a,b){
+			return a-b;
+		})
+		.attr("text-anchor","left")
+		.attr("x",w*0.96)
+		.attr("y",function(d){ //calculate y position based on circle radius
+			var val = d/300000;
+			var r = Math.sqrt(val/Math.PI)*2; //calculate the diamter of each prop circle
+			var y = 0.96*h-(r+5);
+			return y;
+		})
+		.text(function(d){
+			return abbreviateNumber(d);
+		})
+		.attr("class","legendCircNums")
+		;
+
+	//Add LegendCirc Title
+	var circTitle = legendSVG.append("text") //add a text element to the svg for a title
+		.attr("text-anchor","middle") //anchor text to centerpoint
+		.attr("x",w*0.9) //set text anchor location
+		.attr("y",h*0.985)
+		.text("Country Population")
+		.attr("class","circTitle") //provide a class, as always
+		;
+
 
 };
 
@@ -446,8 +542,18 @@ function setChart(csvData, colorScale, map) {
 
 
 
-function createLegendRects(map,colorScale,legendColors){
-	var legendRects = map.selectAll(".legendRects")
+function createLegendRects(legendSVG,colorScale,csvData){
+	//get the domain array to use for the legend
+	var domainArray = makeDomainArray(csvData);
+
+	//cluster the data array using ckMeans clustering algorithm- creates natural breaks
+	var clusters = ss.ckmeans(domainArray, 5); //accesses d3 simple-statistics, sets 5 clusters from the domain
+	//resevar domainArray = domainArray(data);t domainArray as an array of the min of the 5 clusters you created to serve as breakpoints
+	var legendColors = clusters.map(function(d){
+		return d3.median(d);
+	});
+
+	var legendRects = legendSVG.selectAll(".legendRects")
 		.data(legendColors)
 		.enter()
 		.append("rect")
@@ -457,7 +563,7 @@ function createLegendRects(map,colorScale,legendColors){
 		.attr("width",w/9)
 		.attr("height",h/20)
 		.attr("x", function(d,i) {
-			return w/9*(i+2)
+			return w/9*(i+2);
 		})
 		.attr("y",function(d){
 			return h*0.95-(this.getAttribute("height"));
@@ -477,7 +583,7 @@ function createLegendRects(map,colorScale,legendColors){
 		;
 
 	//add legend numbers
-	var legendNums = map.selectAll(".legendNums")
+	var legendNums = legendSVG.selectAll(".legendNums")
 		.data(legendColors)
 		.enter()
 		.append("text")//add a text element
@@ -491,10 +597,26 @@ function createLegendRects(map,colorScale,legendColors){
 			return w/9*(i+2) + (this.getAttribute("width")/2);
 		})
 		.attr("y",function(d){
-			return h*0.95-(this.getAttribute("height")/2);
+			return h*0.95-(this.getAttribute("height"))/3;;
 		})
-		.text(function(d){return d;})
+		.text(function(d){
+			if (typeof parseFloat(d) == "number" && !isNaN(d)) {
+				return d.toPrecision(2); //specify precision
+			} else {
+				return 0; //catch NaN values
+			};
+		})
 		.attr("class","legendNums")
+		;
+
+	//Add title
+	var rectTitle = legendSVG.append("text") //add a text element to the svg for a title
+		.attr("text-anchor","middle") //anchor text to centerpoint
+		.attr("x",w/2) //set text anchor location
+		.attr("y",h*0.985)
+		.style("fill","#444")
+		.text(attrArrayTitles[eIndex][expressed]+" Wealth Index")
+		.attr("class","rectTitle") //provide a class, as always
 		;
 
 }
@@ -503,15 +625,19 @@ function createLegendRects(map,colorScale,legendColors){
 
 
 
+
+
 //create a menu to select disaster
 function selectMenu(csvData,map) {
 	//add the element
-	var menu = d3.select("body")
+	var menu = d3.select("#container")
 		.append("select")
 		//create an onChange listener, triggering the change attribute function!
 		.on("change",function() {
 			changeAttr(this.value, csvData,map)
 		})
+		.style("left","2vw")
+		.style("top",window.innerHeight*0.25)
 		.attr("class","menu")
 		;
 
@@ -528,9 +654,13 @@ function selectMenu(csvData,map) {
 		.enter()
 		.append("option")
 		.attr("value",function(d){return d;})
-		.text(function(d){return d;})
+		.text(function(d,i){
+			return attrArrayTitles[i][d];
+		})
 		;
+
 };
+
 
 
 
@@ -575,17 +705,17 @@ function changeAttr(attribute,csvData,map) {
 	d3.selectAll(".legendRects")
 		.remove()
 		;
+	d3.selectAll(".legendNums")
+		.remove()
+		;
+	d3.selectAll(".rectTitle")
+		.remove()
+		;
 
-	//create new color array for legendrects
-	var domainArray = makeDomainArray(csvData);
-
-	//cluster the data array using ckMeans clustering algorithm- creates natural breaks
-	var clusters = ss.ckmeans(domainArray, 5); //accesses d3 simple-statistics, sets 5 clusters from the domain
-	//resevar domainArray = domainArray(data);t domainArray as an array of the min of the 5 clusters you created to serve as breakpoints
-	var legendColors = clusters.map(function(d){
-		return d3.median(d);
-	});
-	createLegendRects(map,colorScale,legendColors);
+	//select the legendSVG to update the retangles
+	var legendSVG = d3.selectAll(".legendSVG");
+	//redraw legendRects
+	createLegendRects(legendSVG,colorScale,csvData);
 };
 
 
@@ -642,7 +772,7 @@ function updateCircles(circles,colorScale,csvData) {
 	circles.attr("r",function(d){
 		var val = parseFloat(d.Population);
 			if (typeof val == "number" && !isNaN(val)) {
-				var area = val/300000; //CHECK do we need a min size?
+				var area = val/300000; //sized to fit page
 				return Math.sqrt(area/Math.PI); //derive circle size based on country population
 			} else {
 				return 0;
@@ -736,7 +866,7 @@ function dehighlight(country) {
 //create dynamic labels
 function setLabel(country){
 	//label content
-	var numEvents = Math.round(parseFloat(country[expressed])*parseFloat(country.GDPperCapita))
+	var numEvents = noData(Math.round(parseFloat(country[expressed])*parseFloat(country.GDPperCapita)));
 	var header = "<h1>" + numEvents + "</h1>"+
 		attrArrayTitles[eIndex][expressed]+" Events";
 
@@ -754,23 +884,6 @@ function setLabel(country){
 			"GDP per Capita USD: " + noData(abbreviateNumber(parseFloat(country.GDPperCapita))))
 		.attr("class","content")
 		;
-	//function for formatting numbers, provided by: http://stackoverflow.com/questions/10599933/convert-long-number-into-abbreviated-string-in-javascript-with-a-special-shortn
-	function abbreviateNumber(value) {
-    var newValue = Math.round(value);
-	    if (value >= 1000) {
-	        var suffixes = ["", "k", "m", "b","t"];
-	        var suffixNum = Math.floor( (""+newValue).length/3.0001 ); //identifies place (thousands, millions, etc.)
-	        var shortValue = '';
-	        for (var precision = 3; precision >= 1; precision--) {
-	            shortValue = parseFloat( (suffixNum != 0 ? (value / Math.pow(1000,suffixNum) ) : value).toPrecision(precision)); //reduce number to it's factor (10000 > 10, 550000000 > 550)
-	            var dotLessShortValue = (shortValue + '').replace(/[^a-zA-Z 0-9]+/g,'');
-	            if (dotLessShortValue.length <= 2) { break; }
-	        }
-	        if (shortValue % 1 != 0)  shortNum = shortValue.toFixed(1); //provides one decimal if it doesn't divide evenly
-	        newValue = shortValue+suffixes[suffixNum]; //add suffix
-	    }
-	    return newValue;
-	};
 	//catch and replace NaN responses
 	function noData(value){
 		if(String(value) == "NaN"){
@@ -779,6 +892,28 @@ function setLabel(country){
 			return value
 		};
 	};
+};
+
+
+
+
+
+//function for formatting numbers, provided by: http://stackoverflow.com/questions/10599933/convert-long-number-into-abbreviated-string-in-javascript-with-a-special-shortn
+function abbreviateNumber(value) {
+    var newValue = Math.round(value);
+    if (value >= 1000) {
+        var suffixes = ["", "k", "m", "b","t"];
+        var suffixNum = Math.floor( (""+newValue).length/3.0001 ); //identifies place (thousands, millions, etc.)
+        var shortValue = '';
+        for (var precision = 3; precision >= 1; precision--) {
+            shortValue = parseFloat( (suffixNum != 0 ? (value / Math.pow(1000,suffixNum) ) : value).toPrecision(precision)); //reduce number to it's factor (10000 > 10, 550000000 > 550)
+            var dotLessShortValue = (shortValue + '').replace(/[^a-zA-Z 0-9]+/g,'');
+            if (dotLessShortValue.length <= 2) { break; }
+        }
+        if (shortValue % 1 != 0)  shortNum = shortValue.toFixed(1); //provides one decimal if it doesn't divide evenly
+        newValue = shortValue+suffixes[suffixNum]; //add suffix
+    }
+    return newValue;
 };
 
 
